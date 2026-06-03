@@ -390,6 +390,7 @@ export const getReportStatus = async (req, res) => {
         status: report.status,
         message: statusInfo.message,
         color: statusInfo.color,
+        imageUrl: report.imageUrl,
         submittedAt: report.submittedAt,
         // Tampilkan hasil AI kalau sudah ada
         aiResult: aiResult ? {

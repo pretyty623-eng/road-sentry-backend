@@ -4,6 +4,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './src/utils/db.js';
+import AdminUser from './src/models/AdminUser.js';
+import authRoutes from './src/routes/authRoutes.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +44,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
+app.use('/api', authRoutes);
 app.use('/api', reportRoutes);
 
 // Health check
@@ -57,6 +60,7 @@ app.use((err, req, res, next) => {
 
 // Koneksi database
 await connectDB();
+await AdminUser.ensureDefaultAdmin();
 
 // Start server
 app.listen(PORT, () => {

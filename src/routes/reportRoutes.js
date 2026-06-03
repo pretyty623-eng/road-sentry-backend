@@ -1,5 +1,6 @@
 import express from 'express';
 import upload from '../middleware/upload.js';
+import { requireAdminAuth } from '../middleware/requireAdminAuth.js';
 import {
   createReport,
   getAllReports,
@@ -13,11 +14,11 @@ import {
 const router = express.Router();
 
 router.post('/reports', upload.single('image'), createReport);
-router.get('/reports', getAllReports);
+router.get('/reports', requireAdminAuth, getAllReports);
 router.get('/reports/stats', getStats);
 router.get('/reports/map', getMapReports);
 router.get('/reports/:id/status', getReportStatus);  
 router.get('/reports/:id', getReportById);
-router.patch('/reports/:id/status', updateReportStatus);
+router.patch('/reports/:id/status', requireAdminAuth, updateReportStatus);
 
 export default router;
