@@ -8,7 +8,8 @@ import {
   updateReportStatus,
   getStats,
   getMapReports,
-  getReportStatus
+  getReportStatus,
+  getReportImage
 } from '../controllers/reportController.js';
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.post('/reports', upload.single('image'), createReport);
 router.get('/reports', requireAdminAuth, getAllReports);
 router.get('/reports/stats', getStats);
 router.get('/reports/map', getMapReports);
+router.get('/reports/:id/image', getReportImage);
 router.get('/reports/:id/status', getReportStatus);  
 router.get('/reports/:id', getReportById);
 router.patch('/reports/:id/status', requireAdminAuth, updateReportStatus);

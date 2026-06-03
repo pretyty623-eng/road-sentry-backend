@@ -13,6 +13,14 @@ const reportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  imageData: {
+    type: String,
+    select: false
+  },
+  imageMimeType: {
+    type: String,
+    default: 'image/jpeg'
+  },
   latitude: {
     type: Number,
     required: [true, 'Latitude is required'],

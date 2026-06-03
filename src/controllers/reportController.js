@@ -3,6 +3,16 @@ import AIResult from '../models/AIResult.js';
 import PriorityResult from '../models/PriorityResult.js';
 import { callAIService } from '../services/aiService.js';
 import { calculatePriority } from '../services/priorityService.js';
+import fs from 'fs';
+import path from 'path';
+
+const getBackendOrigin = (req) => `${req.protocol}://${req.get('host')}`;
+const getReportImagePath = (report) => `/api/reports/${report.reportId}/image`;
+const formatReportImageFields = (req, report) => ({
+  imageUrl: report.imageUrl,
+  originalImageUrl: getReportImagePath(report),
+  originalImageAbsoluteUrl: `${getBackendOrigin(req)}${getReportImagePath(report)}`
+});
 
 //creat laporan
 export const createReport = async (req, res) => {
@@ -34,6 +44,8 @@ export const createReport = async (req, res) => {
     // Simpan laporan ke database 
     const report = new Report({
       imageUrl: `/uploads/${req.file.filename}`,
+      imageData: fs.readFileSync(req.file.path).toString('base64'),
+      imageMimeType: req.file.mimetype,
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
       description: description.trim()
@@ -50,7 +62,9 @@ export const createReport = async (req, res) => {
     res.status(201).json({
       success: true,
       reportId: report.reportId,
-      imageUrl: report.imageUrl,  
+      imageUrl: report.imageUrl,
+      originalImageUrl: getReportImagePath(report),
+      originalImageAbsoluteUrl: `${getBackendOrigin(req)}${getReportImagePath(report)}`,
       status: report.status,
       message: 'Laporan berhasil dikirim, sedang divalidasi oleh AI'
     });
@@ -107,7 +121,7 @@ export const getAllReports = async (req, res) => {
         },
         description: report.description,
         status: report.status,
-        imageUrl: report.imageUrl,
+        ...formatReportImageFields(req, report),
         submittedAt: report.submittedAt,
         updatedAt: report.updatedAt,
         priorityLabel: priority?.priorityLabel || 'low',  
@@ -165,7 +179,7 @@ export const getReportById = async (req, res) => {
         },
         description: report.description,
         status: report.status,
-        imageUrl: report.imageUrl,
+        ...formatReportImageFields(req, report),
         submittedAt: report.submittedAt,
         updatedAt: report.updatedAt,
 
@@ -303,6 +317,39 @@ export const getStats = async (req, res) => {
   }
 };
 
+export const getReportImage = async (req, res) => {
+  try {
+    const report = await Report.findOne({ reportId: req.params.id })
+      .select('+imageData imageMimeType imageUrl reportId');
+
+    if (!report) {
+      return res.status(404).json({ success: false, error: 'Laporan tidak ditemukan' });
+    }
+
+    if (report.imageData) {
+      const buffer = Buffer.from(report.imageData, 'base64');
+      res.setHeader('Content-Type', report.imageMimeType || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(buffer);
+    }
+
+    if (report.imageUrl?.startsWith('/uploads/')) {
+      const filePath = path.resolve(process.cwd(), report.imageUrl.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    }
+
+    return res.status(404).json({
+      success: false,
+      error: 'Foto laporan tidak tersedia'
+    });
+  } catch (error) {
+    console.error('Error in getReportImage:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // GET report map
 export const getMapReports = async (req, res) => {
   try {
@@ -341,7 +388,7 @@ export const getMapReports = async (req, res) => {
         longitude: report.longitude,
         description: report.description,
         status: report.status,
-        imageUrl: report.imageUrl,
+        ...formatReportImageFields(req, report),
         submittedAt: report.submittedAt,
         priorityLabel: priority?.priorityLabel || 'low',
         priorityScore: priority?.priorityScore || 0,
@@ -390,7 +437,7 @@ export const getReportStatus = async (req, res) => {
         status: report.status,
         message: statusInfo.message,
         color: statusInfo.color,
-        imageUrl: report.imageUrl,
+        ...formatReportImageFields(req, report),
         submittedAt: report.submittedAt,
         // Tampilkan hasil AI kalau sudah ada
         aiResult: aiResult ? {
