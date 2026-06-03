@@ -5,9 +5,22 @@ import FormData from "form-data";
 import fetch from "node-fetch";
 import fs from "fs";
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5001";
+const getAIPredictUrl = () => {
+  const aiServiceUrl = process.env.AI_SERVICE_URL?.trim();
+  if (!aiServiceUrl) return "";
+
+  const normalizedUrl = aiServiceUrl.replace(/\/+$/, "");
+  return normalizedUrl.endsWith("/predict") ? normalizedUrl : `${normalizedUrl}/predict`;
+};
 
 export const callAIService = async (reportId, imagePath) => {
+  const aiPredictUrl = getAIPredictUrl();
+
+  if (!aiPredictUrl) {
+    console.log("AI service belum dikonfigurasi, laporan disimpan tanpa validasi AI otomatis");
+    return;
+  }
+
   try {
     const report = await Report.findById(reportId);
     if (!report) {
@@ -22,12 +35,20 @@ export const callAIService = async (reportId, imagePath) => {
     const form = new FormData();
     form.append("image", fs.createReadStream(imagePath));
 
-    const response = await fetch(`${AI_SERVICE_URL}/predict`, {
-      method:  "POST",
-      body:    form,
-      headers: form.getHeaders(),
-      timeout: 30000
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    let response;
+    try {
+      response = await fetch(aiPredictUrl, {
+        method:  "POST",
+        body:    form,
+        headers: form.getHeaders(),
+        signal:  controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw new Error(`AI service error: ${response.statusText}`);
@@ -69,6 +90,6 @@ export const callAIService = async (reportId, imagePath) => {
 
   } catch (error) {
     console.error(` AI service error: ${error.message}`);
-    await Report.findByIdAndUpdate(reportId, { status: "rejected" });
+    await Report.findByIdAndUpdate(reportId, { status: "submitted" });
   }
 };

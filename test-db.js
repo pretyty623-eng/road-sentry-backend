@@ -1,26 +1,28 @@
-const mongoose = require('mongoose');
-
-const MONGODB_URI = 'mongodb://localhost:27017/road_sentry';
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import { configureDnsServers } from './src/utils/db.js';
 
 async function testConnection() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI belum dikonfigurasi');
+    }
+
+    configureDnsServers();
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000
+    });
     console.log('Berhasil konek ke MongoDB!');
-    
-    // Coba buat collection test
-    const testSchema = new mongoose.Schema({ name: String });
-    const Test = mongoose.model('Test', testSchema);
-    
-    await Test.create({ name: 'ROAD-SENTRY Test' });
-    console.log(' Berhasil insert data test');
-    
-    const data = await Test.find();
-    console.log('Data di database:', data);
+
+    await mongoose.connection.db.admin().ping();
+    console.log('Database siap menerima koneksi');
     
     await mongoose.connection.close();
     console.log('Koneksi ditutup');
   } catch (error) {
     console.error(' Gagal konek:', error.message);
+    process.exitCode = 1;
   }
 }
 

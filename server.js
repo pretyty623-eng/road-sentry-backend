@@ -1,25 +1,38 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import connectDB from './src/utils/db.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
-
-// Koneksi database
-connectDB();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
+const parseOrigins = (value = '') => value
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  ...parseOrigins(process.env.CLIENT_URL),
+  ...parseOrigins(process.env.CLIENT_URLS)
+]);
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin} tidak diizinkan oleh CORS`));
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -41,6 +54,9 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: err.message || 'Something went wrong!' });
 });
+
+// Koneksi database
+await connectDB();
 
 // Start server
 app.listen(PORT, () => {
